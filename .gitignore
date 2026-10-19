@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+env/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Databases & local state
+*.db
+*.sqlite
+*.sqlite3
+.whatsapp_session/
+.omni_sandboxes/
+/tmp/omni_gpu.lock
+*.lock
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
