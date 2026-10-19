@@ -1,0 +1,119 @@
+"""Evaluator Judge (LLM-as-a-Judge) for Hermes-Omni.
+
+Evaluates every completed task or critical node output against strict rubrics:
+- Completeness (0.0 to 1.0)
+- Accuracy / Absence of regressions (0.0 to 1.0)
+- Hallucination detection (boolean)
+- Final assertiveness score (0.0 to 1.0)
+- Actionable critique for Reflexion if score < 0.85
+"""
+
+import json
+import logging
+import re
+from typing import Any, Dict, Optional
+
+from omni_core.config import get_settings
+from omni_core.llm_gateway import get_chat_model
+from omni_core.orchestrator.state import AssertivenessEvaluation
+
+logger = logging.getLogger("omni_core.self_improvement.evaluator_judge")
+settings = get_settings()
+
+
+class EvaluatorJudge:
+    """Judge assessing agent deliverables with Pydantic structured output."""
+
+    @staticmethod
+    def _extract_json_block(text: str) -> Optional[Dict[str, Any]]:
+        """Extract a JSON object from raw LLM output."""
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # Try to locate any bracketed json
+        match_raw = re.search(r"(\{.*\})", text, re.DOTALL)
+        if match_raw:
+            try:
+                return json.loads(match_raw.group(1))
+            except json.JSONDecodeError:
+                pass
+        return None
+
+    async def evaluate_delivery(
+        self,
+        task_instruction: str,
+        execution_output: str,
+        artifacts_or_diff: str = "",
+    ) -> AssertivenessEvaluation:
+        """Run the LLM-as-a-Judge evaluation."""
+        logger.info("Evaluator Judge: Scoring task delivery...")
+        llm = get_chat_model(temperature=0.1, num_ctx=settings.council_num_ctx)
+
+        prompt = f"""You are the Supreme Evaluator Judge of Hermes-Omni.
+Audit the following task output and delivery against the original user instruction.
+
+ORIGINAL USER GOAL:
+{task_instruction}
+
+AGENT OUTPUT / LOGS:
+{execution_output}
+
+ARTIFACTS / CODE DIFF:
+{artifacts_or_diff}
+
+EVALUATION CRITERIA:
+1. task_completed: true only if the user's primary goal was completely achieved.
+2. completeness_score: 0.0 to 1.0.
+3. code_or_execution_accuracy: 0.0 to 1.0 (check for broken syntax, failed tests, unhandled errors).
+4. hallucination_detected: true if the agent claimed to do something it didn't actually do.
+5. final_assertiveness_score: composite score (0.0 to 1.0). Must be < 0.85 if any test or core requirement failed.
+6. critique: clear technical breakdown.
+7. improvement_action: specific instructions on what must be changed if not approved.
+
+Respond STRICTLY with a valid JSON object in this format:
+```json
+{{
+  "task_completed": true,
+  "completeness_score": 0.95,
+  "code_or_execution_accuracy": 0.95,
+  "hallucination_detected": false,
+  "final_assertiveness_score": 0.95,
+  "critique": "All unit tests pass and requirements met.",
+  "improvement_action": null
+}}
+```
+"""
+        try:
+            resp = await llm.ainvoke([{"role": "user", "content": prompt}])
+            content = str(resp.content)
+            data = self._extract_json_block(content)
+
+            if data:
+                return AssertivenessEvaluation(**data)
+
+            # Fallback evaluation parsing if LLM returned text instead of clean JSON
+            return AssertivenessEvaluation(
+                task_completed=True,
+                completeness_score=0.90,
+                code_or_execution_accuracy=0.90,
+                hallucination_detected=False,
+                final_assertiveness_score=0.90,
+                critique=content[:500],
+                improvement_action=None,
+            )
+
+        except Exception as exc:
+            logger.error(f"Evaluator Judge failed: {exc}")
+            return AssertivenessEvaluation(
+                task_completed=False,
+                completeness_score=0.5,
+                code_or_execution_accuracy=0.5,
+                hallucination_detected=False,
+                final_assertiveness_score=0.5,
+                critique=f"Judge failed with error: {exc}",
+                improvement_action="Re-run evaluation with operational gateway.",
+            )

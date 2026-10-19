@@ -17,11 +17,25 @@ import uuid
 
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
-from filelock import FileLock
-import httpx
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+try:
+    from filelock import FileLock
+except ImportError:
+    class FileLock:
+        """Fallback FileLock when filelock package is not installed."""
+        def __init__(self, path: str, timeout: float = 600.0):
+            self.path = path
+        def acquire(self):
+            pass
+        def release(self):
+            pass
 
+try:
+    from langchain_openai import ChatOpenAI
+except ImportError:
+    ChatOpenAI = Any
+    HAS_LANGCHAIN_OPENAI = False
+
+from pydantic import BaseModel, Field
 from omni_core.config import get_settings
 
 logger = logging.getLogger("omni_core.llm_gateway")
@@ -223,32 +237,74 @@ async def openai_chat_completions_proxy(request: Request):
 # Helper factory for LangChain / LangGraph inside Python
 # ==============================================================================
 
+class SimpleLLMResponse:
+    def __init__(self, content: str):
+        self.content = content
+
+
+class SimpleLLMClient:
+    """Lightweight direct HTTP client fallback with the same ainvoke() interface."""
+
+    def __init__(self, base_url: str, model: str, temperature: float = 0.2, timeout: float = 600.0):
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.temperature = temperature
+        self.timeout = timeout
+
+    async def ainvoke(self, messages: Any) -> SimpleLLMResponse:
+        url = f"{self.base_url}/chat/completions"
+        payload_messages = []
+        if isinstance(messages, list):
+            for m in messages:
+                if isinstance(m, dict):
+                    payload_messages.append(m)
+                else:
+                    payload_messages.append({"role": getattr(m, "type", "user"), "content": str(getattr(m, "content", m))})
+        else:
+            payload_messages.append({"role": "user", "content": str(messages)})
+
+        payload = {
+            "model": self.model,
+            "messages": payload_messages,
+            "temperature": self.temperature,
+        }
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            return SimpleLLMResponse(content=content)
+
+
 def get_chat_model(
     temperature: float = 0.2,
     num_ctx: Optional[int] = None,
     streaming: bool = False,
-) -> ChatOpenAI:
-    """Return an initialized ChatOpenAI instance configured to communicate with the local gateway.
-    
-    This unifies LangGraph LLM nodes, ensuring every call obeys the local semaphore
-    and timeouts without hardcoding URLs across the codebase.
-    """
+) -> Any:
+    """Return an initialized ChatOpenAI instance, or resilient SimpleLLMClient fallback."""
     ctx = num_ctx or settings.default_num_ctx
-    return ChatOpenAI(
-        model=settings.ollama_model_name,
-        base_url=f"http://{settings.gateway_host}:{settings.gateway_port}/v1",
-        api_key=settings.gateway_api_key,
-        temperature=temperature,
-        streaming=streaming,
-        timeout=settings.ollama_request_timeout_seconds,
-        max_retries=3,
-        model_kwargs={
-            "extra_body": {
-                "options": {
-                    "num_ctx": ctx,
+    if HAS_LANGCHAIN_OPENAI and ChatOpenAI is not None:
+        return ChatOpenAI(
+            model=settings.ollama_model_name,
+            base_url=f"http://{settings.gateway_host}:{settings.gateway_port}/v1",
+            api_key=settings.gateway_api_key,
+            temperature=temperature,
+            streaming=streaming,
+            timeout=settings.ollama_request_timeout_seconds,
+            max_retries=3,
+            model_kwargs={
+                "extra_body": {
+                    "options": {
+                        "num_ctx": ctx,
+                    }
                 }
-            }
-        },
+            },
+        )
+    return SimpleLLMClient(
+        base_url=f"http://{settings.gateway_host}:{settings.gateway_port}/v1",
+        model=settings.ollama_model_name,
+        temperature=temperature,
+        timeout=settings.ollama_request_timeout_seconds,
     )
 
 

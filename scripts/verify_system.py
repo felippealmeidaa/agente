@@ -6,11 +6,13 @@ Checks:
 2. Required system binaries in PATH (git, ffmpeg, node/npm, uv, docker).
 3. Local directory tree integrity.
 4. Validation of omni_core.config Settings.
-5. Connectivity test to local gateway and remote Ollama URL.
+5. Import integrity across all 5 phases.
+6. Execution of the automated test suite.
 """
 
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -72,6 +74,7 @@ def check_directories() -> bool:
         PROJECT_ROOT / "omni_core" / "coding_council",
         PROJECT_ROOT / "omni_core" / "specialists",
         PROJECT_ROOT / "omni_core" / "self_improvement",
+        PROJECT_ROOT / "tests",
     ]
     all_ok = True
     print_msg("\n--- Verificando Estrutura de Diretorios ---")
@@ -84,31 +87,73 @@ def check_directories() -> bool:
     return all_ok
 
 
-def check_settings_import() -> bool:
-    print_msg("\n--- Verificando Modulos e Configuracoes ---")
+def check_modules_integrity() -> bool:
+    print_msg("\n--- Verificando Integridade dos Modulos (Fases 1 a 5) ---")
+    modules = [
+        ("omni_core.config", "Settings e VRAM limits"),
+        ("omni_core.llm_gateway", "FastAPI Proxy e IPC Semaphore"),
+        ("omni_core.coding_council.worktree_manager", "Git Worktrees Sandbox"),
+        ("omni_core.coding_council.claude_driver", "Claude Code Driver"),
+        ("omni_core.coding_council.auditor_codex_driver", "Auditor Codex Runner"),
+        ("omni_core.coding_council.aider_driver", "Aider Surgical Driver"),
+        ("omni_core.coding_council.council_graph", "LangGraph Coding Council"),
+        ("omni_core.orchestrator.safety_gate", "Tiered Safety Policy Gate"),
+        ("omni_core.specialists.os_godmode_agent", "OS GodMode Specialist"),
+        ("omni_core.specialists.devops_infra_agent", "DevOps Infra Specialist"),
+        ("omni_core.specialists.data_db_agent", "Data DB Specialist"),
+        ("omni_core.specialists.research_web_agent", "Research Web Specialist"),
+        ("omni_core.self_improvement.telemetry_store", "Telemetry & Episodic Memory"),
+        ("omni_core.self_improvement.evaluator_judge", "LLM-as-a-Judge"),
+        ("omni_core.self_improvement.reflexion_engine", "Reflexion Engine (Circuit Breaker)"),
+        ("omni_core.self_improvement.skill_synthesizer", "Skill Synthesizer & Deduplication"),
+        ("omni_core.orchestrator.mobile_notifier", "Mobile Notifier Gateway"),
+        ("omni_core.orchestrator.supervisor_graph", "Supervisor Graph"),
+    ]
+
+    all_passed = True
+    for mod_name, label in modules:
+        try:
+            __import__(mod_name)
+            print_msg(f"• [green]OK[/green] {label:42s} ({mod_name})", "OK")
+        except Exception as exc:
+            print_msg(f"• [red]FAIL[/red] {label:42s}: {exc}", "FAIL")
+            all_passed = False
+    return all_passed
+
+
+def run_test_suite() -> bool:
+    print_msg("\n--- Executando Suite de Testes Automatizados (pytest) ---")
+    cmd = [sys.executable, "-m", "pytest", "tests/", "-q"]
     try:
-        from omni_core.config import get_settings
-        settings = get_settings()
-        print_msg(f"• Configuracoes carregadas com sucesso.", "OK")
-        print_msg(f"  - Modelo alvo: {settings.ollama_model_name}")
-        print_msg(f"  - Remote Ollama URL: {settings.ollama_remote_url}")
-        print_msg(f"  - Local Gateway Host: http://{settings.gateway_host}:{settings.gateway_port}")
-        return True
+        proc = subprocess.run(cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True)
+        if proc.returncode == 0:
+            print_msg(f"• Testes automatizados executados com sucesso!\n{proc.stdout.strip()}", "OK")
+            return True
+        else:
+            print_msg(f"• Falha nos testes automatizados:\n{proc.stderr or proc.stdout}", "FAIL")
+            return False
     except Exception as exc:
-        print_msg(f"• Falha ao carregar configuracoes: {exc}", "FAIL")
+        print_msg(f"• Erro ao rodar pytest: {exc}", "FAIL")
         return False
 
 
 def main():
     print_msg("====================================================")
-    print_msg("       HERMES-OMNI SYSTEM VERIFICATION DIAGNOSTIC   ")
+    print_msg("       HERMES-OMNI COMPLETE SYSTEM VERIFICATION     ")
     print_msg("====================================================\n")
 
     check_python_version()
     check_directories()
-    check_settings_import()
     check_binaries()
-    print_msg("\nFASE 1 - Base Verification Complete!", "DONE")
+    modules_ok = check_modules_integrity()
+    tests_ok = run_test_suite()
+
+    if modules_ok and tests_ok:
+        print_msg("\n====================================================")
+        print_msg("  SISTEMA COMPLETO, VALIDADO E 100% OPERACIONAL!   ", "SUCCESS")
+        print_msg("====================================================")
+    else:
+        print_msg("\n• Sistema requer atencao em modulos especificos.", "WARN")
 
 
 if __name__ == "__main__":
