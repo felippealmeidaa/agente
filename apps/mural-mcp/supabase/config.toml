@@ -1,0 +1,6 @@
+# Só o necessário para `supabase functions deploy` e `supabase db push` neste projeto.
+project_id = "mural"
+
+[functions.mural-mcp]
+# O login é do próprio servidor (OAuth com GitHub): o gateway do Supabase não deve exigir JWT
+verify_jwt = false
