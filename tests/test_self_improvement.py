@@ -3,8 +3,7 @@
 from pathlib import Path
 import pytest
 
-from omni_core.orchestrator.state import AssertivenessEvaluation
-from omni_core.self_improvement.evaluator_judge import EvaluatorJudge
+from omni_core.self_improvement.evaluator_judge import AssertivenessEvaluation, EvaluatorJudge
 from omni_core.self_improvement.reflexion_engine import ReflexionEngine
 from omni_core.self_improvement.skill_synthesizer import SkillSynthesizer
 from omni_core.self_improvement.telemetry_store import TelemetryStore

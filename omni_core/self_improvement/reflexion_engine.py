@@ -12,7 +12,7 @@ from typing import Any, Dict, Tuple
 from pydantic import BaseModel
 
 from omni_core.config import get_settings
-from omni_core.orchestrator.state import AssertivenessEvaluation
+from omni_core.self_improvement.evaluator_judge import AssertivenessEvaluation
 
 logger = logging.getLogger("omni_core.self_improvement.reflexion_engine")
 settings = get_settings()

@@ -1,125 +1,93 @@
-# MASTER PROMPT & ARCHITECTURAL SPECIFICATION v2.0: PROJETO "HERMES-OMNI"
+# MASTER PROMPT & ARCHITECTURAL SPECIFICATION v3.0: PROJETO "HERMES-OMNI"
 **Target Environment:** Antigravity IDE (Agentic Development Mode)  
-**Architecture Pattern:** Hybrid Autonomous Agent OS (Hermes Base + LiteLLM Local Gateway + LangGraph Orchestration + Git Worktree Coding Council + Self-Evolving Reflexion Loop)
+**Architecture Pattern:** Hermes Agent Native Core + OmniCore Extension Suite (Continuous Learning, Deterministic Harness, Niche Specialists & Skill Harvester)
 
 ---
 
-## 1. INFRAESTRUTURA E TOPOLOGIA DE CONEXÃO (BLINDADA CONTRA OOM E CONCORRÊNCIA)
-
-### 1.1. Motor de Inferência Remoto (Servidor RTX 5090 - 32GB VRAM)
-* **Engine:** Ollama Server (`0.0.0.0:11434`) exposto via Túnel HTTPS fixo (`OLLAMA_REMOTE_URL`).
-* **Modelo Base:** `qwen3.8-pro` (`hf.co/unsloth/Qwen3.8-27B-GGUF:UD-Q6_K`, ~22GB VRAM).
-* **Orçamento Estrito de VRAM (Zero CPU Offloading):**
-  * `num_ctx`: `65536` (64k tokens por slot; dinâmico via request: `32768` para sub-agentes rápidos e `65536` para o Coding Council).
-  * `OLLAMA_KV_CACHE_TYPE`: `q8_0` (ou `q4_0` em carga máxima).
-  * `OLLAMA_NUM_PARALLEL`: `2` (1 slot dedicado para cada máquina/usuário, totalizando ~27.5 GB de VRAM e mantendo 4.5 GB de margem de segurança).
-
-### 1.2. Gateway Local de LLM e Semáforo Cross-Process (No Notebook)
-Para resolver simultaneamente:
-1. A tradução perfeita da API Anthropic (`POST /v1/messages`) exigida pelo Claude Code CLI;
-2. O roteamento do Aider para o túnel remoto;
-3. O controle de concorrência entre o Python (LangGraph) e subprocessos externos (CLIs):
-
-* **LiteLLM Proxy / FastAPI LLM Gateway (`omni_core/llm_gateway.py` ou container `litellm`):**
-  * Roda localmente no notebook em `http://127.0.0.1:4000`.
-  * Recebe chamadas tanto no formato OpenAI (`/v1/chat/completions`) quanto no formato Anthropic (`/v1/messages`) e traduz de forma transparente para `${OLLAMA_REMOTE_URL}`.
-  * **Semáforo Global IPC/Redis:** O Gateway Local aplica um semáforo com limite de concorrência configurável (ou lock via Redis/FileLock em `.omni_gpu.lock`) na fila de saída do notebook. Assim, mesmo que o `supervisor_graph` (Python), o `claude` (subprocesso) e o `aider` (subprocesso) rodem no notebook, eles passam pelo proxy local `127.0.0.1:4000` e respeitam rigorosamente a fila sem estourar o Ollama remoto.
-
-### 1.3. Pré-Requisitos de Sistema Operacional (WSL2 Ubuntu + Windows Host)
-* Binários obrigatórios verificados no boot (`scripts/verify_system.py`): `git`, `ffmpeg` (obrigatório para decodificar áudios `.ogg`/Opus do WhatsApp/Telegram para PCM 16kHz no `faster-whisper`), `node`/`npm`, `uv`, `docker`.
-* Modelo de transcrição local: `faster-whisper` fixado no modelo `"small"` ou `"base"` com `compute_type="int8"` na CPU local (transcrição em <500ms sem congelar o notebook).
+## 1. VISÃO GERAL E ALINHAMENTO
+O projeto unifica o ecossistema oficial do **Hermes Agent (Nous Research)** com os super-poderes autônomos do **OmniCore**:
+1. O runtime, CLI, gateways de mensageria (WhatsApp/Telegram/Discord), barramento de ferramentas e loop de conversação residem nativamente no motor do Hermes (`run_agent.py`, `cli.py`, `gateway/`, `tools/`).
+2. O pacote `omni_core/` fornece extensões de alto nível:
+   * **Aprendizado Contínuo Bilateral**: Captura automática de correções humanas (`human_feedback_learner.py`) + Injeção pré-voo (`pre_flight_memory.py`).
+   * **Anti-Regressão Matemática**: Política "Every Bug Becomes a Test" com suíte cumulativa (`regression_guard.py`).
+   * **Metodologia Agent Harness**: Autonomia multi-hora em 6 estágios (`harness/`).
+   * **Ecossistema de Skills por Nicho & Harvester**: Roteamento dinâmico sem estourar o contexto de 64k (`skill_router.py`) + Harvester com sanitização de segurança (`skill_harvester.py`) + Ponte REA/RES e Chrome Debugging (`mcp_rea_bridge.py`).
 
 ---
 
-## 2. ESTRUTURA DE DIRETÓRIOS DO PROJETO
+## 2. ESTRUTURA UNIFICADA DO REPOSITÓRIO
 
 ```text
 hermes-omni/
-├── .env.example
-├── docker-compose.yml              # Postgres (pgvector) + Redis (Global Locks/Queue) + LiteLLM Proxy
-├── pyproject.toml                  # Python 3.12+ via uv
-├── SPEC.md                         # Esta especificação v2.0
-├── SOUL.md                         # Identidade Mestre e Regras de Tiered Safety
-├── skills/                         # Skills em Markdown (nativas + auto-aprendidas)
-│   └── auto_learned/               # Skills sintetizadas autonomamente
+├── agent/                          # Hermes Core Turn Loop, Memory & System Prompt
+│   ├── omni_preflight_hook.py      # Hook pré-voo de injeção de HUMAN_GOLDEN_RULES
+│   └── system_prompt.py            # System Prompt do Hermes patchado com Omni Hook
+├── gateway/                        # Gateways nativos do Hermes (WhatsApp, Telegram, Slack, etc.)
+├── tools/                          # Ferramentas nativas do Hermes
+│   └── omni_core_tools.py          # Registro oficial de ferramentas OmniCore no registry Hermes
+├── skills/                         # Skills em Markdown (Superpowers, REA, etc.)
+│   ├── auto_learned/               # Skills sintetizadas ou colhidas via GitHub
+│   ├── superpowers/                # obra/superpowers (TDD, Systematic Debugging, Writing Plans)
+│   └── reverse-engineer-anything/  # morluto/rea e alextnetto/res
 ├── omni_core/
-│   ├── __init__.py
-│   ├── config.py                   # Pydantic Settings (URLs, Limites, Tiers de Segurança)
-│   ├── llm_gateway.py              # Proxy local FastAPI + Cliente com FileLock/IPC
-│   ├── orchestrator/
-│   │   ├── __init__.py
-│   │   ├── supervisor_graph.py     # Grafo Mestre LangGraph
-│   │   ├── state.py                # Schemas Pydantic e Estado Global
-│   │   ├── safety_gate.py          # Tiered Safety Policy (Auto-Approve vs Mobile HITL Confirmation)
-│   │   └── mobile_notifier.py      # Notificações WhatsApp/Telegram + Decoder FFmpeg/Whisper
-│   ├── coding_council/             # CONSELHO DE CÓDIGO ISOLADO EM GIT WORKTREES
-│   │   ├── __init__.py
-│   │   ├── council_graph.py        # Sub-grafo: Worktree -> Claude -> Auditor/Codex -> Aider -> Merge
-│   │   ├── worktree_manager.py     # Cria/gerencia Git Worktrees isoladas (../.omni_sandboxes/task_id)
-│   │   ├── claude_driver.py        # Subprocesso Claude Code apontando para o Gateway Local (:4000)
-│   │   ├── auditor_codex_driver.py # Runner Híbrido: Executa pytest/linters/build + Codex CLI/LLM Audit
-│   │   └── aider_driver.py         # Subprocesso Aider (--model openai/qwen3.8-pro --openai-api-base :4000/v1)
-│   ├── specialists/
-│   │   ├── __init__.py
-│   │   ├── os_godmode_agent.py     # Controle de OS (WSL2 Bash + Windows PowerShell) filtrado pelo Safety Gate
-│   │   ├── devops_infra_agent.py   # Docker, Rede, Túneis e Deploy
-│   │   ├── data_db_agent.py        # Postgres, SQLite, Queries e RAG
-│   │   └── research_web_agent.py   # Playwright Headless e Scraping
-│   └── self_improvement/
-│       ├── __init__.py
-│       ├── evaluator_judge.py      # LLM-as-a-Judge (Score 0.0 a 1.0)
-│       ├── reflexion_engine.py     # Loop de Auto-Correção com Circuit Breaker (MAX_TURNS = 3)
-│       ├── skill_synthesizer.py    # Síntese de Skills com Deduplicação Vetorial (Cosine Sim > 0.85 = Merge)
-│       └── telemetry_store.py      # Persistência SQLite/Postgres + pgvector
+│   ├── coding_council/
+│   │   ├── council_graph.py        # Orquestrador do Conselho de Código
+│   │   ├── claude_driver.py        # Driver Claude Code
+│   │   ├── auditor_codex_driver.py # Auditor determinístico e agêntico
+│   │   ├── aider_driver.py         # Cirurgião de código Aider
+│   │   ├── worktree_manager.py     # Gerenciamento de Git Worktree
+│   │   └── regression_guard.py     # Anti-regressão matemática acumulada
+│   ├── self_improvement/
+│   │   ├── human_feedback_learner.py   # Extração de UserCorrectionRule & SOUL.md sync
+│   │   ├── pre_flight_memory.py        # Injeção de restrições negativas no prompt
+│   │   ├── evaluator_judge.py          # LLM-as-a-Judge
+│   │   ├── reflexion_engine.py         # Auto-reflexão com Circuit Breaker
+│   │   └── telemetry_store.py          # Persistência de lições e regras
+│   ├── harness/                        # METODOLOGIA HARNESS (AUTONOMIA DETERMINÍSTICA)
+│   │   ├── harness_runner.py           # Ciclo de 6 Estágios (obra/superpowers)
+│   │   ├── evidence_verifier.py        # Evidence Over Claims Gate
+│   │   └── context_compactor.py        # Compactador de contexto em sessões longas
+│   ├── skills_registry/                # ECOSSISTEMA DE SKILLS & REVERSE ENGINEERING
+│   │   ├── skill_router.py             # Roteador dinâmico de skills por nicho
+│   │   ├── skill_harvester.py          # GitHub Harvester autônomo com Security Sanitizer
+│   │   └── mcp_rea_bridge.py           # Ponte REA, RES e Chrome Remote Debugging (9222)
+│   └── specialists/                    # SUB-AGENTES ESPECIALISTAS POR NICHO
+│       ├── sec_reverse_agent.py        # Cybersegurança + Engenharia Reversa (REA/RES)
+│       ├── frontend_ui_agent.py        # Frontend Next.js / Electron / Playwright Vision
+│       ├── clean_code_architect.py     # Clean Code, SOLID, TDD e Design Patterns
+│       ├── data_rag_agent.py           # DBA Postgres / pgvector / Agentic RAG
+│       └── os_devops_godmode_agent.py  # Automação Full-PC (WSL2 + PowerShell) e Infra
+├── tests/
+│   ├── regression/                 # Suíte cumulativa gerada pelo RegressionGuard
+│   ├── test_coding_council.py
+│   ├── test_harness_and_feedback.py
+│   ├── test_safety_gate.py
+│   ├── test_self_improvement.py
+│   └── test_specialists.py
 └── scripts/
-    └── verify_system.py            # Diagnóstico de pré-requisitos, túnel RTX 5090 e binários
+    ├── bootstrap_skills.py         # Provisionamento inicial de skills (Superpowers, REA)
+    └── verify_system.py            # Diagnóstico de ambiente e dependências
 ```
 
 ---
 
-## 3. ESPECIFICAÇÃO DOS MÓDULOS CRÍTICOS
+## 3. ESPECIFICAÇÃO DAS NOVAS CAPACIDADES
 
-### 3.1. Isolamento Total com Git Worktrees (`worktree_manager.py`)
-* Proibido rodar `git checkout` no diretório principal onde o usuário está com a IDE aberta.
-* Para cada tarefa do Coding Council, o `worktree_manager.py` executa:
-  `git worktree add -b omni/task-<id> <repo_parent>/.omni_sandboxes/task-<id> HEAD`
-* Todos os subprocessos (`claude_driver`, `auditor_codex_driver`, `aider_driver`) executam com `cwd` apontando para a pasta isolada da Worktree.
-* **Merge Condicional:** Somente quando o `auditor_codex_driver` aprovar os testes E o `evaluator_judge` atribuir score $\ge 0.85$, o `worktree_manager` faz o merge limpo na branch solicitada (ou mantém a branch pronta para PR) e remove a worktree temporária (`git worktree remove --force`).
+### 3.1. Aprendizado Bilateral & Zero-Regressão
+* **Detecção de Feedback Humano (`human_feedback_learner.py`):** Captura frases imperativas e de correção do usuário, converte em `UserCorrectionRule`, persiste no banco vetorial como `HUMAN_GOLDEN_RULE` com prioridade máxima e escreve na seção imutável do `SOUL.md`.
+* **Zero Regressão Cumulativa (`regression_guard.py`):** "Every Bug Becomes a Test". Todo erro corrigido gera um teste em `tests/regression/test_regression_<slug>.py`. A suíte inteira roda antes de qualquer aprovação de merge.
+* **Injeção Pré-Voo (`pre_flight_memory.py`):** Busca regras e os top 5 erros passados e os injeta como restrição negativa rigorosa no topo do System Prompt do Hermes.
 
-### 3.2. Drivers do Conselho de Código (`omni_core/coding_council/`)
-* **`claude_driver.py`**:
-  * Injeta `ANTHROPIC_BASE_URL=http://127.0.0.1:4000` (Gateway Local que traduz `/v1/messages` para o Ollama e controla o semáforo da GPU) e `ANTHROPIC_API_KEY=omni-local`.
-  * Possui fallback automático para motor de criação multi-arquivo via Aider/LangGraph se o binário `claude` não estiver instalado.
-* **`auditor_codex_driver.py` (Runner Determinístico + Agêntico)**:
-  * **Passo A (Determinístico):** Detecta automaticamente a stack do repositório na worktree (`pyproject.toml`, `package.json`, `.csproj`) e executa suites reais de validação (`pytest`, `ruff check`, `npm test`, `tsc --noEmit`, `dotnet build`).
-  * **Passo B (Agêntico):** Se o CLI `codex` estiver presente no PATH, executa a auditoria agêntica; caso contrário (ou em complemento), envia o git diff sanitizado + output real dos testes para o LLM Auditor via Gateway Local analisar falhas lógicas, contratos quebrados e cobertura.
-* **`aider_driver.py`**:
-  * Conecta de forma 100% explícita ao Gateway Local:
-    `aider --model openai/qwen3.8-pro --openai-api-base http://127.0.0.1:4000/v1 --openai-api-key omni-local --yes-always --no-pretty --no-stream --message "<traceback_and_fix_instruction>"`
+### 3.2. Metodologia de Harness (6 Estágios)
+1. **Socratic Clarifier & Context Discovery:** Resolução de ambiguidades e ativação do Modo Autônomo.
+2. **Bite-Sized Plan Generation:** Criação do `OMNI_PLAN.md` com micro-tarefas atômicas de 2 a 5 minutos.
+3. **Isolated Workspace:** Git Worktree com baseline de testes verificado.
+4. **Subagent-Driven Execution:** Sessão limpa (fresh context) para cada micro-tarefa com skills do nicho.
+5. **Strict TDD Enforcement:** Ciclo obrigatório RED -> GREEN -> REFACTOR.
+6. **Evidence Gate:** Regra Evidence Over Claims — bloqueio de avanço sem prova real de execução (exit code 0, HTTP 200, output validado).
 
-### 3.3. Circuit Breaker no `reflexion_engine.py`
-* Limite rígido: `MAX_GLOBAL_REFLEXION_TURNS = 3`.
-* A cada falha (score $< 0.85$), incrementa `state["reflexion_turn"]`.
-* Se `reflexion_turn >= 3`, o Circuit Breaker abre: interrompe o loop imediatamente, preserva o log na worktree e aciona o `mobile_notifier.py` solicitando decisão humana (Human-in-the-Loop).
-
-### 3.4. Tiered Safety Policy no "God Mode" (`safety_gate.py`)
-* **Tier 1 (Green - Auto-Approve):** Leitura de arquivos, status de sistema, git status/diff, execução de testes em worktrees, queries SELECT, containers de dev.
-* **Tier 2 (Yellow - Sandbox/Snapshot Required):** Edição de código (forçada dentro de Git Worktree), instalação de pacotes locais em `.venv`/`node_modules`, restart de serviços Docker.
-* **Tier 3 (Red - Destructive / Host-Level):** Comandos contendo padrões destrutivos (`rm -rf`, `Remove-Item -Recurse`, `DROP`, `DELETE` sem where, formatação, encerramento de processos críticos do Windows, deleção fora de worktrees). Bloqueio automático no `safety_gate.py` até que o usuário envie confirmação explícita via token/botão no Telegram/WhatsApp.
-
-### 3.5. Skill Synthesizer com Desduplicação Semântica (`skill_synthesizer.py`)
-* Antes de salvar uma nova `SKILL.md` em `skills/auto_learned/`, gera o embedding da lição aprendida e consulta o `telemetry_store.py`.
-* Se encontrar uma skill existente com Similaridade de Cosseno $> 0.85$, carrega o arquivo `.md` existente, faz um Merge Evolutivo (atualizando a skill antiga com o novo caso de borda sem duplicar arquivos) e reindexa o vetor.
-
----
-
-## 4. PLANO DE EXECUÇÃO SEQUENCIAL
-
-* **FASE 1: Fundação e Setup do Repositório (EM PROGRESSO)**
-  * Árvore de diretórios completa do `hermes-omni`.
-  * `pyproject.toml`, `.env.example`, `docker-compose.yml`, `SOUL.md`.
-  * `omni_core/config.py` e `omni_core/llm_gateway.py` (com proxy local FastAPI, semáforo IPC e tradução Anthropic/OpenAI -> Ollama).
-* **FASE 2: Conselho de Código (Worktrees + Claude + Codex + Aider)**
-* **FASE 3: Sub-Agentes Especialistas e Modo Deus Filtrado**
-* **FASE 4: Metacognição (Judge, Reflexion Circuit Breaker, Deduplicating Auto-Skills)**
-* **FASE 5: Grafo Supervisor, Gateway Mobile e Testes End-to-End**
+### 3.3. Skills por Nicho, Superpowers & REA
+* **obra/superpowers:** TDD, Systematic Debugging, Writing Plans integrados nativamente.
+* **morluto/rea + alextnetto/res (`mcp_rea_bridge.py`):** Engenharia reversa de binários, Electron/ASAR, pacotes Android e inspeção em runtime via Chrome Remote Debugging (porta 9222).
+* **GitHub Skill Harvester (`skill_harvester.py`):** Download autônomo de skills do GitHub com sanitização de segurança (bloqueio de comandos destrutivos e prompt injection).
+* **Skill Router (`skill_router.py`):** Injeção dinâmica de skills no System Prompt focada exclusivamente no nicho ativo, preservando a janela de contexto de 64k.

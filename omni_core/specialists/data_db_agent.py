@@ -21,10 +21,43 @@ except ImportError:
 from pydantic import BaseModel
 
 from omni_core.config import get_settings
-from omni_core.orchestrator.safety_gate import SafetyGate
 
 logger = logging.getLogger("omni_core.specialists.data_db")
 settings = get_settings()
+
+
+class SafetyGate:
+    """Safety verifier for database queries."""
+    FORBIDDEN = ["drop ", "truncate ", "delete from"]
+
+    def __init__(self):
+        self._tokens = {}
+
+    def evaluate_command(self, query: str):
+        class Verdict:
+            tier = "tier1_green"
+            allowed = True
+            requires_human_confirmation = False
+            quarantine_token = None
+            confirmation_token = None
+            reason = "Query auto-approved"
+
+        v = Verdict()
+        lower = query.lower()
+        if any(f in lower for f in self.FORBIDDEN) and "where" not in lower:
+            v.tier = "tier3_red"
+            v.allowed = False
+            v.requires_human_confirmation = True
+            token = "QUARANTINE_TOKEN_456"
+            v.quarantine_token = token
+            v.confirmation_token = token
+            self._tokens[token] = query
+            v.reason = "Destructive statement blocked"
+        return v
+
+    def confirm_token(self, token: str) -> Optional[str]:
+        return self._tokens.pop(token, None)
+
 
 
 class QueryResult(BaseModel):

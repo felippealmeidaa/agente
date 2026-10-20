@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 import uuid
 
 from omni_core.config import get_settings
-from omni_core.orchestrator.state import AssertivenessEvaluation
+from omni_core.self_improvement.evaluator_judge import AssertivenessEvaluation
 
 logger = logging.getLogger("omni_core.self_improvement.telemetry_store")
 settings = get_settings()

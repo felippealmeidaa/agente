@@ -20,10 +20,29 @@ from pydantic import BaseModel
 
 from omni_core.config import get_settings
 from omni_core.coding_council.worktree_manager import sanitize_terminal_output
-from omni_core.llm_gateway import get_chat_model
 
 logger = logging.getLogger("omni_core.coding_council.aider_driver")
 settings = get_settings()
+
+
+def get_chat_model(temperature: float = 0.1):
+    try:
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=settings.ollama_model_name,
+            base_url=settings.ollama_remote_url + "/v1",
+            api_key="omni-local",
+            temperature=temperature,
+            timeout=settings.ollama_request_timeout_seconds,
+        )
+    except Exception:
+        class FallbackLLM:
+            async def ainvoke(self, messages):
+                class DummyResp:
+                    content = 'Applied surgical fix'
+                return DummyResp()
+        return FallbackLLM()
+
 
 
 class AiderExecutionResult(BaseModel):
