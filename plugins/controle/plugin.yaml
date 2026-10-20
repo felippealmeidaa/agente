@@ -1,0 +1,9 @@
+manifest_version: 2
+name: controle
+version: 0.1.0
+description: Liga cada ferramenta do agente ao app de controle (aprovações, permissões, vazamento, cerca contra injeção, parar tudo, atividade)
+provides_hooks:
+  - pre_tool_call
+  - transform_tool_result
+  - post_tool_call
+  - post_approval_response

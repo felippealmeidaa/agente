@@ -1,0 +1,12 @@
+{
+  "name": "controle",
+  "label": "Controle",
+  "description": "Rotas do painel de controle usadas pela página Controle do Hermes Desktop",
+  "version": "0.2.0",
+  "tab": {
+    "path": "/controle",
+    "hidden": true
+  },
+  "entry": "dist/index.js",
+  "api": "plugin_api.py"
+}
