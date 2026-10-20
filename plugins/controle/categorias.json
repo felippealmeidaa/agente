@@ -1,0 +1,11 @@
+[
+  {"id": "terminal", "nome": "Terminal e código", "descricao": "Rodar comandos no terminal, scripts e processos em segundo plano", "ferramentas": ["terminal", "process_manage", "execute_code"], "prefixos": [], "padrao": "perguntar"},
+  {"id": "escrita", "nome": "Gravar arquivos", "descricao": "Criar e editar arquivos. Nas pastas liberadas abaixo, grava sem perguntar", "ferramentas": ["write_file", "patch"], "prefixos": [], "padrao": "perguntar"},
+  {"id": "leitura", "nome": "Ler arquivos", "descricao": "Abrir e procurar arquivos no seu PC", "ferramentas": ["read_file", "search_files"], "prefixos": [], "padrao": "livre"},
+  {"id": "navegador", "nome": "Navegador", "descricao": "Abrir sites, clicar, digitar e preencher formulários num navegador", "ferramentas": [], "prefixos": ["browser_"], "padrao": "perguntar"},
+  {"id": "pc", "nome": "Controle do PC", "descricao": "Mouse, teclado e capturas de tela do seu computador", "ferramentas": ["computer_use"], "prefixos": [], "padrao": "bloqueado"},
+  {"id": "internet", "nome": "Pesquisa na internet", "descricao": "Buscar e ler páginas da web (sem navegador)", "ferramentas": ["web_search", "web_extract", "x_search"], "prefixos": [], "padrao": "livre"},
+  {"id": "delegacao", "nome": "Subagentes e agendamentos", "descricao": "Criar subagentes e tarefas agendadas que rodam sozinhas", "ferramentas": ["delegate_task", "cronjob_manage"], "prefixos": [], "padrao": "perguntar"},
+  {"id": "mcp", "nome": "Servidores MCP", "descricao": "Ferramentas de servidores MCP conectados (GitHub, bancos, etc.)", "ferramentas": [], "prefixos": ["mcp_"], "padrao": "perguntar"},
+  {"id": "outros", "nome": "Outras ferramentas", "descricao": "Memória, skills, kanban, imagens e o resto", "ferramentas": [], "prefixos": [], "padrao": "livre"}
+]
