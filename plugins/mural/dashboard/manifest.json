@@ -1,0 +1,14 @@
+{
+  "name": "mural",
+  "label": "Mural",
+  "description": "Mural de passagem entre o seu agente e o do parceiro",
+  "icon": "MessageSquare",
+  "version": "0.1.0",
+  "tab": {
+    "path": "/mural",
+    "position": "after:sessions"
+  },
+  "entry": "dist/index.js",
+  "css": "dist/style.css",
+  "api": "plugin_api.py"
+}
