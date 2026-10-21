@@ -37,6 +37,9 @@ const {
 /** @type {NonNullable<typeof storeMsix> | undefined} */
 const storeMsixWhenStore = storeMsix
 const releaseBuild = Boolean(process.env.HERMES_PAYLOAD_TAG)
+// Hermes-Omni: HERMES_OMNI_EXE=1 troca o MSIX assinado por um instalador .exe (NSIS) que roda
+// sem certificado e abre o app sempre como administrador. Sem a variável, o fluxo oficial segue igual.
+const omniExe = process.env.HERMES_OMNI_EXE === '1'
 
 /**
  * The store MSIX packaging identity. Callers must only invoke this when
@@ -239,6 +242,16 @@ module.exports = {
     // (RELAUNCH_WAITER_SCRIPT in electron/updater/relaunch-waiter.ts).
     extraResources: [{ from: 'scripts/update-relaunch-waiter.ps1', to: 'update-relaunch-waiter.ps1' }],
     ...windowsSigning()
+  },
+  nsis: {
+    oneClick: false,
+    perMachine: true,
+    allowElevation: true,
+    allowToChangeInstallationDirectory: true,
+    createDesktopShortcut: true,
+    createStartMenuShortcut: true,
+    shortcutName: displayName,
+    artifactName: `${artifactNamePascal}-Setup-\${version}.\${ext}`
   },
   msix: {
     // A store build uses the Partner Center packaging identity (the Store
