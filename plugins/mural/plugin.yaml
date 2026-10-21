@@ -1,0 +1,25 @@
+manifest_version: 2
+name: mural
+version: 0.1.0
+description: Mural de passagem entre o seu agente e o do parceiro (Supabase compartilhado)
+provides_tools:
+  - mural_ler
+  - mural_escrever
+  - mural_responder
+requires_env:
+  - name: MURAL_SUPABASE_URL
+    description: URL do projeto Supabase do mural (https://<ref>.supabase.co)
+  - name: MURAL_SUPABASE_CHAVE
+    description: Chave secreta do projeto Supabase do mural (sb_secret_... ou service_role)
+    secret: true
+config_schema:
+  eu:
+    type: str
+    default: ""
+    description: Seu nome no mural, em minúsculas (ex. guilherme)
+    required: true
+  parceiro:
+    type: str
+    default: ""
+    description: Nome do parceiro no mural, em minúsculas (ex. felipe)
+    required: true
