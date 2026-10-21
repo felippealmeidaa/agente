@@ -11,8 +11,14 @@ import { prepareDmgbuild } from './prepare-dmgbuild.mjs'
 
 /** @param {string} source @param {string} name @returns {string} */
 export function pinnedPackageRoot(source, name) {
-  const require = createRequire(path.join(source, 'apps/desktop/package.json'))
-  const entry = require.resolve(name)
+  let entry
+  try {
+    const require = createRequire(path.join(source, 'apps/desktop/package.json'))
+    entry = require.resolve(name)
+  } catch {
+    const rootRequire = createRequire(path.join(source, 'package.json'))
+    entry = rootRequire.resolve(name)
+  }
   let directory = path.dirname(entry)
   while (!fs.existsSync(path.join(directory, 'package.json'))) {
     const parent = path.dirname(directory)
@@ -22,7 +28,8 @@ export function pinnedPackageRoot(source, name) {
   const installed = JSON.parse(fs.readFileSync(path.join(directory, 'package.json'), 'utf8'))
   const lock = JSON.parse(fs.readFileSync(path.join(source, 'package-lock.json'), 'utf8'))
   const key = path.relative(source, directory).split(path.sep).join('/')
-  if (!lock.packages?.[key] || lock.packages[key].version !== installed.version || installed.name !== name) {
+  const lockEntry = lock.packages?.[key] || lock.packages?.[`node_modules/${name}`]
+  if (!lockEntry || lockEntry.version !== installed.version || installed.name !== name) {
     throw new Error(`Installed ${name} is not the source's lock-pinned package; prepare Node dependencies first`)
   }
   return directory

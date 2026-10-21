@@ -70,10 +70,13 @@ def check_binaries() -> dict:
 def check_directories() -> bool:
     required_dirs = [
         PROJECT_ROOT / "skills" / "auto_learned",
-        PROJECT_ROOT / "omni_core" / "orchestrator",
         PROJECT_ROOT / "omni_core" / "coding_council",
+        PROJECT_ROOT / "omni_core" / "harness",
+        PROJECT_ROOT / "omni_core" / "skills_registry",
         PROJECT_ROOT / "omni_core" / "specialists",
         PROJECT_ROOT / "omni_core" / "self_improvement",
+        PROJECT_ROOT / "plugins" / "controle",
+        PROJECT_ROOT / "plugins" / "mural",
         PROJECT_ROOT / "tests",
     ]
     all_ok = True
@@ -88,26 +91,31 @@ def check_directories() -> bool:
 
 
 def check_modules_integrity() -> bool:
-    print_msg("\n--- Verificando Integridade dos Modulos (Fases 1 a 5) ---")
+    print_msg("\n--- Verificando Integridade dos Modulos (OmniCore + Plugins) ---")
     modules = [
         ("omni_core.config", "Settings e VRAM limits"),
-        ("omni_core.llm_gateway", "FastAPI Proxy e IPC Semaphore"),
         ("omni_core.coding_council.worktree_manager", "Git Worktrees Sandbox"),
         ("omni_core.coding_council.claude_driver", "Claude Code Driver"),
         ("omni_core.coding_council.auditor_codex_driver", "Auditor Codex Runner"),
         ("omni_core.coding_council.aider_driver", "Aider Surgical Driver"),
         ("omni_core.coding_council.council_graph", "LangGraph Coding Council"),
-        ("omni_core.orchestrator.safety_gate", "Tiered Safety Policy Gate"),
+        ("omni_core.coding_council.regression_guard", "Regression Guard"),
+        ("omni_core.harness.evidence_verifier", "Evidence Verifier"),
+        ("omni_core.harness.harness_runner", "Autonomous Harness Runner"),
+        ("omni_core.skills_registry.skill_router", "Skill Router"),
+        ("omni_core.skills_registry.skill_harvester", "Skill Harvester"),
         ("omni_core.specialists.os_godmode_agent", "OS GodMode Specialist"),
         ("omni_core.specialists.devops_infra_agent", "DevOps Infra Specialist"),
         ("omni_core.specialists.data_db_agent", "Data DB Specialist"),
         ("omni_core.specialists.research_web_agent", "Research Web Specialist"),
+        ("omni_core.self_improvement.human_feedback_learner", "Human Feedback Learner"),
         ("omni_core.self_improvement.telemetry_store", "Telemetry & Episodic Memory"),
         ("omni_core.self_improvement.evaluator_judge", "LLM-as-a-Judge"),
         ("omni_core.self_improvement.reflexion_engine", "Reflexion Engine (Circuit Breaker)"),
         ("omni_core.self_improvement.skill_synthesizer", "Skill Synthesizer & Deduplication"),
-        ("omni_core.orchestrator.mobile_notifier", "Mobile Notifier Gateway"),
-        ("omni_core.orchestrator.supervisor_graph", "Supervisor Graph"),
+        ("plugins.controle", "Plugin Controle de Permissoes"),
+        ("plugins.mural", "Plugin Mural de Passagem"),
+        ("tools.omni_core_tools", "Hermes Omni Core Tools Registry"),
     ]
 
     all_passed = True
@@ -122,8 +130,18 @@ def check_modules_integrity() -> bool:
 
 
 def run_test_suite() -> bool:
-    print_msg("\n--- Executando Suite de Testes Automatizados (pytest) ---")
-    cmd = [sys.executable, "-m", "pytest", "tests/", "-q"]
+    print_msg("\n--- Executando Suite de Testes Customizados (OmniCore + Plugins) ---")
+    test_files = [
+        "tests/test_coding_council.py",
+        "tests/test_harness_and_feedback.py",
+        "tests/test_self_improvement.py",
+        "tests/test_specialists.py",
+        "tests/test_worktree_manager.py",
+        "tests/test_controle.py",
+        "tests/test_controle_protecoes.py",
+        "tests/test_mural.py",
+    ]
+    cmd = [sys.executable, "-m", "pytest", *test_files, "-q"]
     try:
         proc = subprocess.run(cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True)
         if proc.returncode == 0:

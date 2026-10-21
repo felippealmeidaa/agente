@@ -21,12 +21,28 @@ def test_sanitize_terminal_output():
 
 
 @pytest.mark.asyncio
-async def test_worktree_lifecycle():
-    """Verify end-to-end Git Worktree creation, diff detection, commit, and cleanup."""
-    repo_root = Path(__file__).resolve().parent.parent
-    task_id = "test_unit_99"
+async def test_worktree_lifecycle(tmp_path):
+    """Verify end-to-end Git Worktree creation, diff detection, commit, and cleanup in an isolated repo."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
 
-    wm = WorktreeManager()
+    # Initialize a clean test repository
+    p_init = await asyncio.create_subprocess_exec("git", "init", "-b", "main", cwd=str(repo_root))
+    await p_init.wait()
+    p_cfg1 = await asyncio.create_subprocess_exec("git", "config", "user.name", "TestUser", cwd=str(repo_root))
+    await p_cfg1.wait()
+    p_cfg2 = await asyncio.create_subprocess_exec("git", "config", "user.email", "test@test.local", cwd=str(repo_root))
+    await p_cfg2.wait()
+
+    readme = repo_root / "README.md"
+    readme.write_text("# Test Repo\n", encoding="utf-8")
+    p_add = await asyncio.create_subprocess_exec("git", "add", "README.md", cwd=str(repo_root))
+    await p_add.wait()
+    p_cmt = await asyncio.create_subprocess_exec("git", "commit", "-m", "init", cwd=str(repo_root))
+    await p_cmt.wait()
+
+    task_id = "test_unit_99"
+    wm = WorktreeManager(sandbox_base_dir=tmp_path / "sandboxes")
     worktree_path, branch_name = await wm.create_worktree(
         repo_root=repo_root,
         task_id=task_id,
@@ -40,7 +56,7 @@ async def test_worktree_lifecycle():
 
         # Create a test file inside the worktree
         test_file = worktree_path / "sandbox_test.txt"
-        test_file.write_text("Hello from isolated worktree sandbox!")
+        test_file.write_text("Hello from isolated worktree sandbox!", encoding="utf-8")
 
         # Verify clean diff captures the new file
         diff = await wm.get_clean_diff(worktree_path)
@@ -60,3 +76,4 @@ async def test_worktree_lifecycle():
         )
         assert removed is True
         assert not worktree_path.exists()
+

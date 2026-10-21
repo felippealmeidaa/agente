@@ -6,6 +6,10 @@ import path from 'node:path'
 import { createRequire, registerHooks } from 'node:module'
 import { pathToFileURL } from 'node:url'
 
+if (process.platform !== 'darwin') {
+  process.exit(0)
+}
+
 const require = createRequire(import.meta.url)
 const signerEntry = require.resolve('@electron/osx-sign')
 const signerRequire = createRequire(signerEntry)
