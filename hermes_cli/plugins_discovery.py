@@ -29,6 +29,9 @@ logger = logging.getLogger("hermes_cli.plugins")
 ENTRY_POINTS_GROUP = "hermes_agent.plugins"
 ENTRY_POINT_CAPABILITIES_GROUP = "hermes_agent.plugin_capabilities"
 
+# Hermes-Omni: plugins embutidos que fazem parte do produto e carregam sem estar em plugins.enabled
+SEMPRE_ATIVOS_DO_PRODUTO = frozenset({"controle"})
+
 # Per-harness manifest directories plugin repos ship for OTHER agent harnesses (e.g. obra/superpowers keeps one
 # plugin.json per harness). Their plugin.json is not an Agent Plugins v1 manifest and can never validate, so
 # parsing it on every discovery pass only spams warnings (#101962).
@@ -291,6 +294,10 @@ def gate_manifest(
     if manifest.source == "bundled":
         # Bundled backends auto-load; selection among them is ``<category>.provider`` config.
         if manifest.kind == "backend":
+            return ManifestGate("load_now")
+        # Hermes-Omni: o painel de controle de permissões faz parte do app e sobe sempre
+        # (só ``plugins.disabled``, checado acima, o desliga).
+        if names & SEMPRE_ATIVOS_DO_PRODUTO:
             return ManifestGate("load_now")
         # Bundled platforms register LAZILY: eagerly importing ~20 heavy SDKs added seconds to every `hermes`
         # invocation. A deferred loader keeps every platform available on first use.
